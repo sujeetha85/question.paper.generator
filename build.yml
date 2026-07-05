@@ -1,0 +1,64 @@
+name: Build Windows EXE and Create Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller PyQt5 requests reportlab
+    
+    - name: Build EXE with PyInstaller
+      run: |
+        pyinstaller QuestionPaperGenerator.spec
+    
+    - name: Create Windows Installer with NSIS
+      uses: joncloud/makensis-action@v3.6
+      with:
+        script-file: "installer.nsi"
+    
+    - name: Create Release
+      uses: actions/create-release@v1
+      id: create_release
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        draft: false
+        prerelease: false
+    
+    - name: Upload Windows EXE
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./dist/QuestionPaperGenerator/QuestionPaperGenerator.exe
+        asset_name: QuestionPaperGenerator.exe
+        asset_content_type: application/octet-stream
+    
+    - name: Upload Windows Installer
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./QuestionPaperGenerator-Installer.exe
+        asset_name: QuestionPaperGenerator-Installer.exe
+        asset_content_type: application/octet-stream
